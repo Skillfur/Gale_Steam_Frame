@@ -58,7 +58,9 @@ HOST_LIBS = {
 }
 # These GIO modules pull in a proxy stack that is not useful on SteamOS.
 DROP_GIO = {"libgiolibproxy.so", "libgiognomeproxy.so"}
-# PNG and JPEG are built into Debian's gdk-pixbuf; the rest are loadable modules.
+# gdk-pixbuf loader modules to bundle. PNG and JPEG are built into Debian's
+# gdk-pixbuf. librsvg names its module libpixbufloader_svg.so, the others use
+# a dash, so names are compared with "_" turned into "-".
 KEEP_LOADERS = {
     "libpixbufloader-png.so",
     "libpixbufloader-jpeg.so",
@@ -169,7 +171,7 @@ class Packer:
 
         loaders = self.libdir / "gdk-pixbuf-2.0/2.10.0/loaders"
         for p in sorted(loaders.glob("*.so")):
-            if p.name in KEEP_LOADERS:
+            if p.name.replace("_", "-") in KEEP_LOADERS:
                 self.from_sysroot(p, out / "lib/gdk-pixbuf-2.0/2.10.0/loaders" / p.name)
 
         gio = self.libdir / "gio/modules"

@@ -25,7 +25,7 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 rm -rf "$APPDIR/cache"
 mksquashfs "$APPDIR" "$WORK/app.squashfs" \
-  -root-owned -noappend -no-xattrs -comp zstd -Xcompression-level 19 -b 1M -quiet
+  -root-owned -noappend -no-xattrs -comp zstd -Xcompression-level 19 -b 1M -quiet -no-progress
 
 mkdir -p "$(dirname "$OUT")"
 cat "$RUNTIME" "$WORK/app.squashfs" > "$OUT"

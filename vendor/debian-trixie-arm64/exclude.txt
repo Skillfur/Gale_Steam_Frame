@@ -10,3 +10,5 @@ mesa-vulkan-drivers
 mesa-va-drivers
 mesa-vdpau-drivers
 libgl1-mesa-dri
+# SMT solver used only by libLLVM (excluded above).
+libz3-*

@@ -410,7 +410,6 @@ libxtst-dev                                      2:1.2.5-1                      
 libxtst6                                         2:1.2.5-1                                arm64
 libxxf86vm1                                      1:1.1.4-1+b4                             arm64
 libyuv0                                          0.0.1904.20250204-1                      arm64
-libz3-4                                          4.13.3-1                                 arm64
 libzstd-dev                                      1.5.7+dfsg-1                             arm64
 libzstd1                                         1.5.7+dfsg-1                             arm64
 linux-libc-dev                                   6.12.111-1                               all

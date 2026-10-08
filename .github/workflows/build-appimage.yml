@@ -78,6 +78,7 @@ jobs:
         with:
           workspaces: gale/src-tauri -> target
           key: aarch64-unknown-linux-gnu
+          cache-on-failure: true
 
       - name: Show toolchain versions
         run: |
