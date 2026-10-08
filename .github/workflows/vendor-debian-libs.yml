@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: debian:trixie
+    defaults:
+      run:
+        shell: bash
     env:
       DEBIAN_FRONTEND: noninteractive
     outputs:
@@ -32,6 +35,8 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates git debian-archive-keyring
+          # The workspace belongs to the runner user, not to root in the container.
+          git config --global --add safe.directory '*'
 
       - name: Checkout repository
         uses: actions/checkout@v6
