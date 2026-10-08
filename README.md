@@ -24,8 +24,8 @@ If FUSE is not available:
 
     ./Gale-1.22.3-aarch64.AppImage --appimage-extract-and-run
 
-Do not use Gale's built-in updater. Official updates are x86_64 builds and
-would not run.
+Gale's built-in updater only knows about the official x86_64 builds, so do
+not use it. To update, download the new AppImage from this repository.
 
 ## How the build works
 
@@ -51,7 +51,11 @@ Debian 13 (trixie) arm64.
    (`vendor/appimage-runtime/`).
 5. **Smoke test.** `scripts/check-appimage.sh` runs the AppImage under qemu,
    extracts it, and checks that `gale.bin` and the WebKit helpers resolve
-   every library and symbol.
+   every library and symbol against the bundle plus a simulated SteamOS host
+   (only the libraries listed below as host-provided).
+6. **Launch test.** `scripts/launch-test.sh` starts Gale under qemu on a
+   virtual X display, waits for WebKit to render, fails if Gale crashes, and
+   saves a screenshot (the `launch-screenshot` artifact of each run).
 
 ### Steam Frame specific fixes
 
@@ -78,7 +82,7 @@ code:
   they are not inside the `.deb` files. The build compiles the schemas and
   generates the loader cache (under qemu) itself.
 
-The AppImage needs glibc 2.41 or newer on the host, which SteamOS provides.
+The AppImage needs glibc 2.39 or newer on the host, which SteamOS provides.
 Each build writes the exact requirement to `share/doc/REQUIREMENTS.txt`
 inside the AppImage.
 
@@ -86,7 +90,7 @@ inside the AppImage.
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `Build AppImage (aarch64)` | pushes that touch the build, tags, PRs, manual | Builds, tests and uploads the AppImage. On a tag, also publishes a release. |
+| `Build AppImage (aarch64)` | pushes that touch the build, tags, PRs, manual | Builds, tests and uploads the AppImage and a launch screenshot. On a tag, also publishes a release. |
 | `Vendor Debian libraries` | manual only | Downloads the current Debian trixie arm64 packages, commits them to the branch, then starts a build. |
 
 ## Common tasks
@@ -97,7 +101,8 @@ inside the AppImage.
     git -C gale checkout 1.22.4        # the new upstream tag
     git add gale
     git commit -m "Gale 1.22.4"
-    git tag 1.22.4 && git push --follow-tags
+    git push
+    git tag 1.22.4 && git push origin 1.22.4   # publishes a release
 
 If the new release needs more system libraries, add them to
 `vendor/debian-trixie-arm64/packages.txt` and run *Vendor Debian libraries*.
@@ -112,6 +117,8 @@ WebKitGTK changes the helper path string.
 
     apt-get install -y build-essential pkg-config patchelf file python3 git curl \
       gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user squashfs-tools libglib2.0-bin
+    # only for scripts/launch-test.sh:
+    apt-get install -y xvfb x11-apps netpbm dbus procps fontconfig fonts-dejavu-core
     # plus Rust (rustup target add aarch64-unknown-linux-gnu), Node.js 24 and pnpm 11
     git submodule update --init
     scripts/build-appimage.sh          # result in dist/
@@ -127,7 +134,8 @@ scripts/vendor-debs.sh        refreshes vendor/debian-trixie-arm64 (used by the 
 scripts/setup-sysroot.sh      unpacks the vendored .debs into build/sysroot
 scripts/build-gale.sh         frontend + aarch64 cross-compile
 scripts/make-appimage.sh      AppDir -> dist/Gale-<version>-aarch64.AppImage
-scripts/check-appimage.sh     qemu smoke test
+scripts/check-appimage.sh     qemu smoke test (libraries and symbols)
+scripts/launch-test.sh        qemu + Xvfb launch test with screenshot
 scripts/build-appimage.sh     all of the above, in order
 vendor/debian-trixie-arm64/   packages.txt, exclude.txt, debs/, SHA256SUMS, MANIFEST.txt
 vendor/appimage-runtime/      pinned aarch64 AppImage type 2 runtime

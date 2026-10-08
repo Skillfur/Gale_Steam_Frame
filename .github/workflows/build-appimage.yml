@@ -46,7 +46,8 @@ jobs:
             ca-certificates curl git file xz-utils zstd python3 \
             build-essential pkg-config patchelf \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            qemu-user squashfs-tools libglib2.0-bin
+            qemu-user squashfs-tools libglib2.0-bin \
+            xvfb x11-apps netpbm dbus procps fontconfig fonts-dejavu-core
           # The workspace belongs to the runner user, not to root in the container.
           git config --global --add safe.directory '*'
 
@@ -106,6 +107,17 @@ jobs:
 
       - name: Smoke-test AppImage under qemu
         run: scripts/check-appimage.sh dist/*.AppImage
+
+      - name: Launch AppImage under qemu and take a screenshot
+        run: scripts/launch-test.sh dist/*.AppImage dist/screenshot/gale-launch.png
+
+      - name: Upload launch screenshot
+        if: success() || failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: launch-screenshot
+          path: dist/screenshot/
+          if-no-files-found: ignore
 
       - name: Summary
         run: |
