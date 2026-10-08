@@ -1,0 +1,148 @@
+name: Build AppImage (aarch64)
+run-name: Build Gale aarch64 AppImage (${{ github.ref_name }})
+
+on:
+  push:
+    branches: ['**']
+    tags: ['*']
+    paths:
+      - gale
+      - packaging/**
+      - scripts/**
+      - vendor/**
+      - .github/workflows/build-appimage.yml
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Build
+    # Cross-compiles on x86_64. The container is Debian 13, the same release
+    # as the vendored arm64 libraries, so the cross GCC matches their ABI.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: debian:trixie
+    env:
+      CARGO_TERM_COLOR: always
+      DEBIAN_FRONTEND: noninteractive
+    outputs:
+      appimage: ${{ steps.appimage.outputs.name }}
+    steps:
+      - name: Install host packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git file xz-utils zstd python3 \
+            build-essential pkg-config patchelf \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            qemu-user squashfs-tools libglib2.0-bin
+
+      - name: Checkout repository and Gale submodule
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+            sh -s -- -y --profile minimal --default-toolchain stable --target aarch64-unknown-linux-gnu
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: gale/pnpm-lock.yaml
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: gale/src-tauri -> target
+          key: aarch64-unknown-linux-gnu
+
+      - name: Show toolchain versions
+        run: |
+          rustc --version
+          cargo --version
+          node --version
+          pnpm --version
+          aarch64-linux-gnu-gcc --version | head -n1
+          git -C gale describe --tags --always
+
+      - name: Unpack vendored Debian arm64 libraries into the sysroot
+        run: scripts/setup-sysroot.sh
+
+      - name: Build frontend and cross-compile Gale
+        run: scripts/build-gale.sh
+
+      - name: Collect portable tree
+        run: python3 packaging/pack_gale.py
+
+      - name: Build AppImage
+        id: appimage
+        run: |
+          scripts/make-appimage.sh
+          echo "name=$(basename dist/*.AppImage)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test AppImage under qemu
+        run: scripts/check-appimage.sh dist/*.AppImage
+
+      - name: Summary
+        run: |
+          {
+            echo "### $(basename dist/*.AppImage)"
+            echo
+            echo '```'
+            ls -lh dist/
+            cat dist/*.sha256
+            cat build/AppDir/share/doc/REQUIREMENTS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.appimage.outputs.name }}
+          path: |
+            dist/*.AppImage
+            dist/*.sha256
+          compression-level: 0
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download AppImage
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ needs.build.outputs.appimage }}
+          path: dist
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Gale $TAG (aarch64 AppImage)" \
+            --notes "Gale built for aarch64 Linux (Steam Frame / SteamOS), from the commit of the gale submodule at $TAG. Do not use the in-app updater: official updates are x86_64 only."

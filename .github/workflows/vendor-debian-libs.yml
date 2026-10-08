@@ -1,0 +1,74 @@
+name: Vendor Debian libraries
+run-name: Vendor Debian arm64 libraries (${{ github.ref_name }})
+
+# Downloads the Debian 13 arm64 packages listed in
+# vendor/debian-trixie-arm64/packages.txt (with their dependencies) and
+# commits them to this branch, so the AppImage build never fetches libraries
+# from the network. Run it by hand to pick up Debian security updates or after
+# editing packages.txt / exclude.txt.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  vendor:
+    name: Download and commit packages
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - name: Install host packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git debian-archive-keyring
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download packages
+        run: scripts/vendor-debs.sh
+
+      - name: Commit vendored packages
+        id: commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A vendor/debian-trixie-arm64
+          if git diff --cached --quiet; then
+            echo "Vendored packages are already up to date." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo '### Changed packages'
+            echo '```diff'
+            git diff --cached -U0 -- vendor/debian-trixie-arm64/MANIFEST.txt | grep -E '^[-+][^-+#]' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          git commit -q -m "Update vendored Debian trixie arm64 packages"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Start AppImage build
+    needs: vendor
+    if: needs.vendor.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      # Pushes made with GITHUB_TOKEN do not start workflows, so start the
+      # build explicitly on the new commit.
+      - name: Dispatch build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-appimage.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"

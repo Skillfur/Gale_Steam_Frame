@@ -1,0 +1,58 @@
+#!/bin/sh
+# Launch Gale with the bundled aarch64 GTK 3 / WebKitGTK 4.1 stack.
+# Works from the AppImage (read-only mount) and from an unpacked directory.
+HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export GIO_MODULE_DIR="$HERE/lib/gio/modules"
+export GSETTINGS_SCHEMA_DIR="$HERE/share/glib-2.0/schemas"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:$HERE/share"
+if [ -z "${GDK_BACKEND:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+  export GDK_BACKEND=wayland
+fi
+
+# Release WebKitGTK ignores WEBKIT_EXEC_PATH unless built with DEVELOPER_MODE.
+# pack_gale.py rewrites the compiled-in helper directory to this path.
+# Links that still point at a running copy of this same build are kept, so a
+# second launch does not pull the helpers out from under the first one.
+WK=/tmp/gale-webkit2gtk-4.1
+BUILD_ID=$(cat "$HERE/share/build-id" 2>/dev/null)
+if [ ! -x "$WK/WebKitNetworkProcess" ] || [ ! -x "$WK/WebKitWebProcess" ] ||
+  [ "$(cat "$WK/build-id" 2>/dev/null)" != "$BUILD_ID" ]; then
+  rm -rf "$WK"
+  mkdir -p "$WK/injected-bundle"
+  for helper in WebKitNetworkProcess WebKitWebProcess WebKitGPUProcess; do
+    if [ -e "$HERE/libexec/$helper" ]; then
+      ln -s "$HERE/libexec/$helper" "$WK/$helper"
+    fi
+  done
+  ln -s "$HERE/libexec/injected-bundle/libwebkit2gtkinjectedbundle.so" \
+    "$WK/injected-bundle/libwebkit2gtkinjectedbundle.so"
+  printf '%s\n' "$BUILD_ID" > "$WK/build-id"
+fi
+# Bubblewrap cannot see helpers relocated to the AppImage mount.
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+# libwayland, libEGL, libgbm and libdrm come from the host (SteamOS Mesa).
+# The dma-buf renderer paints a blank window on this GPU, so paint the UI
+# through shared memory instead.
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+# The gdk-pixbuf loader cache needs absolute paths, and the AppImage mount
+# point changes on every launch, so it is written to a cache directory.
+if [ -n "${XDG_CACHE_HOME:-}" ]; then
+  CACHE="$XDG_CACHE_HOME/gale-aarch64"
+elif [ -w "$HERE" ]; then
+  CACHE="$HERE/cache"
+else
+  CACHE="${HOME:-/tmp}/.cache/gale-aarch64"
+fi
+mkdir -p "$CACHE"
+LOADERS="$HERE/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+if ! grep -qF "\"$LOADERS/" "$CACHE/loaders.cache" 2>/dev/null; then
+  sed "s#@PREFIX@#$HERE#g" "$HERE/share/loaders.cache.in" > "$CACHE/loaders.cache"
+fi
+export GDK_PIXBUF_MODULE_FILE="$CACHE/loaders.cache"
+export GDK_PIXBUF_MODULEDIR="$LOADERS"
+
+exec "$HERE/gale.bin" "$@"

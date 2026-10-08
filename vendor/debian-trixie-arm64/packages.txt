@@ -1,0 +1,22 @@
+# Debian 13 (trixie) arm64 packages that Gale is compiled against and that the
+# AppImage bundles. scripts/vendor-debs.sh resolves their full dependency
+# closure (Depends + Pre-Depends, no Recommends) and stores every .deb in
+# debs/. Edit this list, then run the "Vendor Debian libraries" workflow.
+
+# Runtime stack bundled into the AppImage (SteamOS does not ship it).
+libwebkit2gtk-4.1-0
+libjavascriptcoregtk-4.1-0
+libgtk-3-0
+# GnuTLS GIO module: HTTPS inside WebKit's network process.
+glib-networking
+# SVG loader for gdk-pixbuf.
+librsvg2-common
+
+# Build-only: headers, pkg-config files and link-time libraries.
+libc6-dev
+libgtk-3-dev
+libwebkit2gtk-4.1-dev
+libjavascriptcoregtk-4.1-dev
+libsoup-3.0-dev
+libayatana-appindicator3-dev
+libdbus-1-dev

@@ -1,0 +1,3 @@
+[submodule "gale"]
+	path = gale
+	url = https://github.com/Kesomannen/gale.git

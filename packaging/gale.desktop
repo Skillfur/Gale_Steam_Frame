@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Gale
+GenericName=Thunderstore mod manager
+Comment=Mod manager for Thunderstore
+Exec=gale %u
+Icon=gale
+Terminal=false
+Categories=Game;
+StartupWMClass=gale
+MimeType=x-scheme-handler/ror2mm;x-scheme-handler/gale;application/x-r2z;
+X-AppImage-Version=@VERSION@

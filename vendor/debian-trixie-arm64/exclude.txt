@@ -1,0 +1,12 @@
+# Packages that apt pulls into the closure but that are never linked against
+# and never bundled. They are dropped after download to keep the repository
+# small. Shell glob patterns, matched against the package name.
+
+# Mesa's GPU drivers and their LLVM backend. The AppImage must use the GPU
+# driver of the device (SteamOS), so these are only dead weight here.
+libllvm*
+mesa-libgallium
+mesa-vulkan-drivers
+mesa-va-drivers
+mesa-vdpau-drivers
+libgl1-mesa-dri
