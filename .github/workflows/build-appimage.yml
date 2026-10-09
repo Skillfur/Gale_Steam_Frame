@@ -13,13 +13,18 @@ on:
       - .github/workflows/build-appimage.yml
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a release with this tag (e.g. 1.22.3); leave empty to only build
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.release }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
 
 jobs:
   build:
@@ -143,7 +148,7 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.release != ''
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -158,7 +163,7 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.release || github.ref_name }}
         run: |
           cat > notes.md << EOF
           Gale $TAG built for aarch64 Linux (Steam Frame / SteamOS on ARM).
@@ -170,7 +175,14 @@ jobs:
           Or download the AppImage below, allow it to execute and add it to Steam.
           Don't use Gale's built-in updater, it only knows about the official x86_64 builds.
           EOF
-          gh release create "$TAG" dist/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Gale $TAG (aarch64 AppImage)" \
-            --notes-file notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            # Release made by hand on GitHub: just attach the AppImage.
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            # Creates the tag on the built commit if it does not exist yet.
+            gh release create "$TAG" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Gale $TAG (aarch64 AppImage)" \
+              --notes-file notes.md
+          fi

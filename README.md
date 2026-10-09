@@ -49,7 +49,7 @@ Applied by `packaging/` when the AppImage is built:
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `Build AppImage (aarch64)` | pushes, tags, PRs, manual | Builds and tests the AppImage. A tag also publishes a release, which `install.sh` picks up. |
+| `Build AppImage (aarch64)` | pushes, tags, PRs, manual | Builds and tests the AppImage. Run by hand with a *release* tag (or push a tag) to also publish a release, which `install.sh` picks up. |
 | `Vendor Debian libraries` | manual | Refreshes the Debian arm64 libraries in `vendor/` (e.g. WebKitGTK security updates) and starts a build. |
 
 **New Gale release**
@@ -57,7 +57,9 @@ Applied by `packaging/` when the AppImage is built:
     git -C gale fetch --tags origin
     git -C gale checkout 1.22.4        # the new upstream tag
     git commit -am "Gale 1.22.4" && git push
-    git tag 1.22.4 && git push origin 1.22.4
+
+Then publish it: *Actions → Build AppImage (aarch64) → Run workflow* with
+release `1.22.4`.
 
 **Local build** (x86_64 Debian 13, as root): see the packages installed in
 `.github/workflows/build-appimage.yml`, then
