@@ -160,7 +160,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          cat > notes.md << EOF
+          Gale $TAG built for aarch64 Linux (Steam Frame / SteamOS on ARM).
+
+          Install or update on the Steam Frame, in Desktop Mode, from a terminal:
+
+              curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/HEAD/install.sh | bash
+
+          Or download the AppImage below, allow it to execute and add it to Steam.
+          Don't use Gale's built-in updater, it only knows about the official x86_64 builds.
+          EOF
           gh release create "$TAG" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "Gale $TAG (aarch64 AppImage)" \
-            --notes "Gale built for aarch64 Linux (Steam Frame / SteamOS), from the commit of the gale submodule at $TAG. Do not use the in-app updater: official updates are x86_64 only."
+            --notes-file notes.md
