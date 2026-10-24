@@ -32,7 +32,7 @@ To uninstall:
 
 | Workflow | What it does |
 | --- | --- |
-| `Build AppImage (aarch64)` | Runs on every push and uploads the AppImage. *Run workflow* with a *release* tag publishes a release. |
+| `Build AppImage (aarch64)` | Runs on every push and uploads the AppImage. *Run workflow* with a *release* tag publishes a release with the notes from `RELEASE_NOTES.md`. |
 | `Vendor Debian libraries` | Manual. Refreshes the Debian arm64 libraries in `vendor/`. |
 
 **New Gale release**

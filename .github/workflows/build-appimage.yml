@@ -165,16 +165,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release || github.ref_name }}
         run: |
-          cat > notes.md << EOF
+          # Notes come from RELEASE_NOTES.md of the built commit, if it has any.
+          if ! gh api "repos/$GITHUB_REPOSITORY/contents/RELEASE_NOTES.md?ref=$GITHUB_SHA" \
+              -H "Accept: application/vnd.github.raw" > notes.md 2> /dev/null || [ ! -s notes.md ]; then
+            cat > notes.md << EOF
           Gale $TAG built for aarch64 Linux (Steam Frame / SteamOS on ARM).
 
           Install or update on the Steam Frame, in Desktop Mode, from a terminal:
 
               curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/HEAD/install.sh | bash
-
-          Or download the AppImage below, allow it to execute and add it to Steam.
-          Don't use Gale's built-in updater, it only knows about the official x86_64 builds.
           EOF
+          fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             # Release made by hand on GitHub: just attach the AppImage.
             gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
