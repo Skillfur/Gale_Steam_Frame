@@ -93,6 +93,8 @@ STUB_LIBS = [
 ]
 WEBKIT_HELPERS = ["WebKitWebProcess", "WebKitNetworkProcess", "WebKitGPUProcess"]
 WEBKIT_LIB = "libwebkit2gtk-4.1.so.0"
+# glibc of SteamOS on the Steam Frame. Nothing in the bundle may need newer.
+MAX_GLIBC = "2.39"
 WEBKIT_TMP = "/tmp/gale-webkit2gtk-4.1"
 
 
@@ -160,6 +162,7 @@ class Packer:
         self.packaging = Path(__file__).resolve().parent
         self.qemu: str = args.qemu
         self.cc: str = args.cc
+        self.max_glibc: str = args.max_glibc
         self.libdir = self.sysroot / "usr/lib" / TRIPLET
         self.search = [self.libdir, self.sysroot / "usr/lib"]
         # sysroot-relative file path -> (package, version), from setup-sysroot.sh
@@ -379,6 +382,7 @@ class Packer:
         bundled = {p.name for p in (self.out / "lib").iterdir() if p.is_file()}
         problems = []
         newest_glibc: tuple[int, ...] = ()
+        max_glibc = tuple(int(x) for x in self.max_glibc.split("."))
         for path in elf_files(self.out):
             for dep in needed(path):
                 if dep not in HOST_LIBS and dep not in bundled:
@@ -386,6 +390,9 @@ class Packer:
             versions = glibc_versions(path)
             if versions:
                 newest_glibc = max(newest_glibc, max(versions))
+                if max(versions) > max_glibc:
+                    v = ".".join(map(str, max(versions)))
+                    problems.append(f"{path.relative_to(self.out)} needs glibc {v}, the Steam Frame has {self.max_glibc}")
             if "ARM aarch64" not in subprocess.check_output(["file", "-b", str(path)], text=True):
                 problems.append(f"{path.relative_to(self.out)} is not an aarch64 ELF")
         if problems:
@@ -432,6 +439,7 @@ def main() -> None:
     )
     ap.add_argument("--out", type=Path, default=repo / "build/AppDir")
     ap.add_argument("--cc", default="aarch64-linux-gnu-gcc", help="aarch64 C compiler, used to build stubs")
+    ap.add_argument("--max-glibc", default=MAX_GLIBC, help="newest glibc the bundle may need")
     ap.add_argument(
         "--qemu",
         default=shutil.which("qemu-aarch64-static") or shutil.which("qemu-aarch64") or "qemu-aarch64",
