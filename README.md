@@ -27,8 +27,6 @@ To uninstall:
   so it is rewritten to `/tmp/gale-webkit2gtk-4.1`, where `AppRun` links the bundled helpers.
 - **Shared-memory rendering.** The dma-buf path draws a blank window on this GPU.
 - **No WebKit sandbox.** bubblewrap cannot see the relocated helpers.
-- **Smaller download.** Speech synthesis (flite) and AV1 encoders, which Gale never uses,
-  are replaced by empty stub libraries.
 
 ## Building
 
